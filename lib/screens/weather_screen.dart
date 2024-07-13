@@ -2,14 +2,36 @@ import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator_platform_interface/src/models/position.dart';
+import 'package:google_places_flutter/google_places_flutter.dart';
+import 'package:google_places_flutter/model/prediction.dart';
 import 'package:intl/intl.dart';
+import 'package:weather/weather.dart';
 import 'package:weather_bloc_app/bloc/weather_bloc.dart';
+import 'package:weather_bloc_app/common/widgets/search_box_place.dart';
+import 'package:weather_bloc_app/data/screat_key.dart';
+import 'package:weather_bloc_app/db/function/db_function.dart';
 
-class WeatherScreen extends StatelessWidget {
+class WeatherScreen extends StatefulWidget {
   const WeatherScreen({super.key});
+
+  @override
+  State<WeatherScreen> createState() => _WeatherScreenState();
+}
+
+class _WeatherScreenState extends State<WeatherScreen> {
+  final TextEditingController controller = TextEditingController();
+
+ 
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,6 +84,13 @@ class WeatherScreen extends StatelessWidget {
               ),
               BlocBuilder<WeatherBloc, WeatherState>(
                 builder: (context, state) {
+                  if (state is WeatherLoading) {
+                    return const Center(
+                        child: CircularProgressIndicator.adaptive(
+                      backgroundColor: Colors.white,
+                    ));
+                  }
+
                   if (state is WeatherSuccess) {
                     return SizedBox(
                       height: MediaQuery.of(context).size.height,
@@ -70,6 +99,67 @@ class WeatherScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            GooglePlaceAutoCompleteTextField(
+                              textEditingController: controller,
+                              textStyle: const TextStyle(color: Colors.white),
+                              googleAPIKey: googleApi,
+                              inputDecoration: const InputDecoration(
+                                  hintText: "Enter the city ",
+                                  hintStyle: TextStyle(color: Colors.white),
+                                  prefixIcon: Icon(Icons.location_on,
+                                      color: Colors.white),
+                                  border: OutlineInputBorder(
+                                      borderSide: BorderSide.none)),
+                              debounceTime: 800, // default 600 ms,
+                              countries: [
+                                "in",
+                                "fr"
+                              ], // optional by default null is set
+                              isLatLngRequired:
+                                  true, // if you required coordinates from place detail
+                              getPlaceDetailWithLatLng:
+                                  (Prediction prediction) {
+                                // this method will return latlng with place detail
+
+                                context
+                                    .read<WeatherBloc>()
+                                    .add(WeatherFetchByCity(prediction));
+                              }, // this callback is called when isLatLngRequired is true
+                              itemClick: (Prediction prediction) {
+                                controller.text = prediction.description!;
+                                controller.selection =
+                                    TextSelection.fromPosition(TextPosition(
+                                        offset:
+                                            prediction.description!.length));
+                              },
+                              // if we want to make custom list item builder
+                              itemBuilder:
+                                  (context, index, Prediction prediction) {
+                                return Container(
+                                  padding: const EdgeInsets.all(10),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.location_on),
+                                      const SizedBox(
+                                        width: 7,
+                                      ),
+                                      Expanded(
+                                          child: Text(
+                                              prediction.description ?? ""))
+                                    ],
+                                  ),
+                                );
+                              },
+                              // if you want to add seperator between list items
+                              seperatedBuilder: const Divider(),
+                              // want to show close icon
+                              isCrossBtnShown: true,
+                              // optional container padding
+                              containerHorizontalPadding: 10,
+                            ),
+                            const SizedBox(
+                              height: 20,
+                            ),
                             Text(
                               '📍 ${state.weather.areaName!}',
                               style: const TextStyle(
@@ -79,7 +169,7 @@ class WeatherScreen extends StatelessWidget {
                             const SizedBox(
                               height: 8,
                             ),
-                             Text(
+                            Text(
                               getStatus(state.weather.date!),
                               style: const TextStyle(
                                   color: Colors.white,
@@ -248,13 +338,81 @@ class WeatherScreen extends StatelessWidget {
                                 )
                               ],
                             ),
+                            const SizedBox(
+                              height: 20,
+                            ),
+                            const Text(
+                              ' 5 days Forecast',
+                              style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white),
+                            ),
+                            const SizedBox(
+                              height: 20,
+                            ),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: state.weatherForecast
+                                    .map(
+                                      (e) => Container(
+                                        padding: EdgeInsets.all(3),
+                                        margin: const EdgeInsets.only(top: 10,bottom: 10,right: 10),
+                                        height: 145,
+                                        width: 85,
+                                        decoration: BoxDecoration(
+                                            border:
+                                                Border.all(color: Colors.grey),
+                                            borderRadius:
+                                                BorderRadius.circular(10)),
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceEvenly,
+                                          children: [
+                                            Text(
+                                              DateFormat('E').format(e.date!),
+                                              style: TextStyle(
+                                                  color: Colors.white,fontWeight: FontWeight.bold),
+                                            ),
+                                                        Text(
+                                              DateFormat().add_jm().format(e.date!),
+                                              style: TextStyle(
+                                                  color: Colors.white),
+                                            ),
+                                            getWeatherImage(
+                                                e.weatherConditionCode!),
+                                            Text(
+                                              '${e.tempFeelsLike!.celsius!.round()}°C',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w400,
+                                                  color: Colors.white70),
+                                            )
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                            )
                           ],
                         ),
                       ),
                     );
                   } else {
-                    return const Center(
-                      child: Text('Something went wrong'),
+                    return const Column(
+                      children: [
+                        SearchBoxPlace(),
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Enter your city in the Text Box',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ],
                     );
                   }
                 },

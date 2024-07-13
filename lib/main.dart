@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:weather_bloc_app/bloc/weather_bloc.dart';
+import 'package:weather_bloc_app/db/model/data_model.dart';
 import 'package:weather_bloc_app/screens/weather_screen.dart';
-import 'package:geolocator/geolocator.dart';
 
-void main() {
+Future<void> main() async {
+  // WidgetsFlutterBinding.ensureInitialized();
+  // await Hive.initFlutter();
+  // if (!Hive.isAdapterRegistered(DataModelAdapter().typeId)) {
+  //   Hive.registerAdapter(DataModelAdapter());
+  // }
   runApp(const MyApp());
 }
 
@@ -14,43 +20,16 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: FutureBuilder<Position>(
-        future: _determinePosition(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            // While the future is resolving, show a loading indicator.
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          } else if (snapshot.hasError) {
-            // If there's an error, show an error message.
-            return Scaffold(
-              body: Center(
-                child: Text('Error: ${snapshot.error}'),
-              ),
-            );
-          } else if (snapshot.hasData) {
-            // If the future resolves with data, show the weather screen.
-            return BlocProvider(
-              create: (context) =>
-                  WeatherBloc()..add(WeatherFetchEvent(snapshot.data!)),
-              child: const WeatherScreen(),
-            );
-          } else {
-            // If somehow no data or error (this shouldn't happen), show a fallback.
-            return const Scaffold(
-              body: Center(child: Text('Unexpected error.')),
-            );
-          }
-        },
-      ),
+    return BlocProvider(
+      create: (context) => WeatherBloc(),
+      child: MaterialApp(
+          title: 'Flutter Demo',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+            useMaterial3: true,
+          ),
+          home: const WeatherScreen()),
     );
   }
 }
@@ -59,39 +38,39 @@ class MyApp extends StatelessWidget {
 ///
 /// When the location services are not enabled or permissions
 /// are denied the `Future` will return an error.
-Future<Position> _determinePosition() async {
-  bool serviceEnabled;
-  LocationPermission permission;
+// Future<Position> _determinePosition() async {
+//   bool serviceEnabled;
+//   LocationPermission permission;
 
-  // Test if location services are enabled.
-  serviceEnabled = await Geolocator.isLocationServiceEnabled();
-  if (!serviceEnabled) {
-    // Location services are not enabled don't continue
-    // accessing the position and request users of the
-    // App to enable the location services.
-    return Future.error('Location services are disabled.');
-  }
+//   // Test if location services are enabled.
+//   serviceEnabled = await Geolocator.isLocationServiceEnabled();
+//   if (!serviceEnabled) {
+//     // Location services are not enabled don't continue
+//     // accessing the position and request users of the
+//     // App to enable the location services.
+//     return Future.error('Location services are disabled.');
+//   }
 
-  permission = await Geolocator.checkPermission();
-  if (permission == LocationPermission.denied) {
-    permission = await Geolocator.requestPermission();
-    if (permission == LocationPermission.denied) {
-      // Permissions are denied, next time you could try
-      // requesting permissions again (this is also where
-      // Android's shouldShowRequestPermissionRationale
-      // returned true. According to Android guidelines
-      // your App should show an explanatory UI now.
-      return Future.error('Location permissions are denied');
-    }
-  }
+//   permission = await Geolocator.checkPermission();
+//   if (permission == LocationPermission.denied) {
+//     permission = await Geolocator.requestPermission();
+//     if (permission == LocationPermission.denied) {
+//       // Permissions are denied, next time you could try
+//       // requesting permissions again (this is also where
+//       // Android's shouldShowRequestPermissionRationale
+//       // returned true. According to Android guidelines
+//       // your App should show an explanatory UI now.
+//       return Future.error('Location permissions are denied');
+//     }
+//   }
 
-  if (permission == LocationPermission.deniedForever) {
-    // Permissions are denied forever, handle appropriately.
-    return Future.error(
-        'Location permissions are permanently denied, we cannot request permissions.');
-  }
+//   if (permission == LocationPermission.deniedForever) {
+//     // Permissions are denied forever, handle appropriately.
+//     return Future.error(
+//         'Location permissions are permanently denied, we cannot request permissions.');
+//   }
 
-  // When we reach here, permissions are granted and we can
-  // continue accessing the position of the device.
-  return await Geolocator.getCurrentPosition();
-}
+//   // When we reach here, permissions are granted and we can
+//   // continue accessing the position of the device.
+//   return await Geolocator.getCurrentPosition();
+// }
